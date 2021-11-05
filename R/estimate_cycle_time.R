@@ -1,30 +1,46 @@
-#' Title
+#' Estimate cycle time
 #'
-#' @param exprs
-#' @param ensembl_ids
-#' @param entrez_ids
-#' @param handle_multiple_observations
-#' @param quiet
+#' Estimate uterine cycle time of endometrium samples using expression data.
 #'
-#' @return
+#' @param exprs Expression matrix with rows as gene observations and columns as samples
+#' @param ensembl_ids Optional vector of Ensembl gene identifiers corresponding to each row of the expression matrix \code{exprs}.
+#' @param entrez_ids Optional vector of Entrez gene identifiers corresponding to each row of the expression matrix \code{exprs}.
+#' @param handle_multiple_observations Method of handling multiple observations correspond to the same gene. \code{"remove"} will remove all observations of multiple observations, while \code{"mean"}, \code{"median"}, and \code{"max"} will consolidate multiple observations into one using the specified function.
+#' @param quiet Run quietly and don't output messages.
+#'
+#' @return Returns a list with the following items:
+#' \describe{
+#'   \item{estimated_time}{A vector of estimated cycle times from 0 to 99 for each sample.}
+#'   \item{mse}{A matrix of mean squared error values for each sample at each timepoint.}
+#'   \item{residuals}{A matrix of residual values after subtracting the cycle stage effect.}
+#' }
 #' @export
 #'
 #' @examples
+#' # Simulate gene expression data for 100 genes and 3 samples
+#' entrez_ids <- 9801:9900
+#' y <- matrix(rnorm(100*3, 5, 2), nrow=100)
+#' colnames(y) <- paste0("sample_", 1:3)
+#' results <- estimate_cycle_time(exprs=y, entrez_ids=entrez_ids)
+#' results$estimated_time
+
 estimate_cycle_time <- function(exprs, ensembl_ids=NULL, entrez_ids=NULL,
-                                handle_multiple_observations=c("remove", "mean", "median", "max"),
+                                handle_multiple_observations=c("mean", "median", "max", "remove"),
                                 quiet=FALSE) {
 
   handle_multiple_observations <- match.arg(handle_multiple_observations)
 
   # Check input exprs has sample names as colnames
   if (is.null(colnames(exprs))) {
-    stop("Error: Missing sample names. Expression matrix must have column names")
+    stop("Error: Missing sample names. Expression matrix must have column names.")
   }
 
-  # TODO: Handle cases with missing rownames?
+  # Check gene IDs have been provided
+  if (is.null(rownames(exprs)) & is.null(ensembl_ids) & is.null(entrez_ids)) {
+    stop("Error: Missing gene identifiers. Ensembl or Entrez gene IDs must be set as rownames in the expression matrix or provided using the ensembl_ids/entrez_ids arguments.")
+  }
 
   # Determine what gene identifiers are used
-  # TODO: Check if provided gene IDs look like ensembl/entrez IDs
   if (! is.null(ensembl_ids)) {
     gene_id_type <- "ensembl"
     gene_ids <- ensembl_ids
@@ -33,6 +49,7 @@ estimate_cycle_time <- function(exprs, ensembl_ids=NULL, entrez_ids=NULL,
     gene_ids <- as.character(entrez_ids)
   } else {
     gene_id_type <- identify_id_type(rownames(exprs))
+    gene_ids <- rownames(exprs)
     if (! quiet) {
       message(paste0("Using ", gene_id_type, " identifiers from rownames."))
     }
@@ -51,30 +68,31 @@ estimate_cycle_time <- function(exprs, ensembl_ids=NULL, entrez_ids=NULL,
     rownames(coef_matrix) <- ensembl_to_entrez
   }
 
-  # TODO: handle NAs in ensembl_ids and entrez_ids args
-  # TODO: handle possible duplicate rownames (treat as probes?)
-
   # Get common genes
   if (is.null(ensembl_ids) & is.null(entrez_ids)) {
-    common_genes <- intersect(rownames(coef_matrix), rownames(exprs))
+    in_common <- intersect(rownames(coef_matrix), rownames(exprs))
+    common_genes <- rownames(exprs)[rownames(exprs) %in% in_common]
     n_obs <- length(common_genes)
   } else {
-    common_genes <- intersect(gene_ids, rownames(coef_matrix))
+    in_common <- intersect(gene_ids, rownames(coef_matrix))
+    common_genes <- gene_ids[gene_ids %in% in_common]
     n_obs <- sum(gene_ids %in% common_genes)
   }
   if (! quiet) {
     message(paste0("Using ", n_obs, "/", nrow(exprs), " observations from the input expression matrix."))
   }
 
-  # Handle provided ensembl IDs many-to-one observations
-  if (is.null(ensembl_ids) & is.null(entrez_ids)) {
+  # Handle possible gene IDs many-to-one observations
+  if (is.null(ensembl_ids) & is.null(entrez_ids) & ! any(duplicated(common_genes))) {
     common_exprs <- exprs[common_genes,]
-  } else if (! any(duplicated(gene_ids))) {
+  } else if (! any(duplicated(common_genes))) {
     rownames(exprs) <- gene_ids
     common_exprs <- exprs[common_genes,]
   } else {
-    # TODO: Refactor this later
+    # TODO: Refactor this out later
     probe_to_gene_id <- gene_ids
+    # Change rownames of exprs to 1:nrow(exprs) since we can't always be sure unique rownames are provided
+    rownames(exprs) <- seq_len(nrow(exprs))
     names(probe_to_gene_id) <- rownames(exprs)
 
     # Handle one-to-one observations
@@ -86,22 +104,35 @@ estimate_cycle_time <- function(exprs, ensembl_ids=NULL, entrez_ids=NULL,
 
     # Consolidate ensembl IDs that have multiple probes
     multiple_genes <- names(which(table(gene_ids) > 1))
-    if (! quiet) {
-      message(paste0("Consolidating ", length(multiple_genes), "genes that have multiple observations."))
-    }
-    consolidated_list <- list()
-    for (gid in multiple_genes) {
-      illumina_ids <- names(which(probe_to_gene_id == gid))
-      # TODO: Currently only using means
-      consolidated_list[[gid]] <- colMeans(exprs[illumina_ids,])
-    }
 
-    # Combine single and multiple matrices
-    common_exprs  <- rbind(
-      do.call(rbind, consolidated_list),
-      single_exprs
-    )
-    common_exprs <- common_exprs[common_genes,]
+    if (handle_multiple_observations == "remove") {
+      message(paste0("Removing ", length(multiple_genes), " genes that have multiple observations."))
+      common_genes <- common_genes[common_genes %in% rownames(single_exprs)]
+      common_exprs <- single_exprs[common_genes,]
+    } else {
+      if (! quiet) {
+        message(paste0("Consolidating ", length(multiple_genes), " genes that have multiple observations using the ", handle_multiple_observations, "."))
+      }
+      consolidated_list <- list()
+      if (handle_multiple_observations == "mean") {
+        f <- mean
+      } else if (handle_multiple_observations == "median") {
+        f <- stats::median
+      } else {
+        f <- max
+      }
+      for (gid in multiple_genes) {
+        illumina_ids <- names(which(probe_to_gene_id == gid))
+        consolidated_list[[gid]] <- apply(exprs[illumina_ids,], 2, f)
+      }
+
+      # Combine single and multiple matrices
+      common_exprs  <- rbind(
+        do.call(rbind, consolidated_list),
+        single_exprs
+      )
+      common_exprs <- common_exprs[common_genes,]
+    }
   }
 
   # Process expression data
@@ -113,7 +144,7 @@ estimate_cycle_time <- function(exprs, ensembl_ids=NULL, entrez_ids=NULL,
   expected_exprs <- coef_matrix %*% lp_matrix
 
   # Get the mean squared error
-  mse <- sapply(1:ncol(common_exprs), function(i) {
+  mse <- sapply(1:ncol(normalised_exprs), function(i) {
     colMeans(sweep(x=expected_exprs[common_genes,], MARGIN=1, STATS=normalised_exprs[,i], FUN="-") ^ 2)
   })
   colnames(mse) <- colnames(common_exprs)
@@ -123,11 +154,14 @@ estimate_cycle_time <- function(exprs, ensembl_ids=NULL, entrez_ids=NULL,
   estimated_time <- as.numeric(sub("^time_", "", estimated_time))
   names(estimated_time) <- colnames(mse)
 
-  # TODO: Return residuals?
+  # Calculate residuals
+  exp <- expected_exprs[common_genes,rownames(mse)[apply(mse, 2, which.min)]]
+  residuals <- normalised_exprs - exp
 
-  # TODO: Return an S4 object?
+  # TODO: Return an S4 object instead of a list?
   return(list(estimated_time=estimated_time,
-              mse=mse))
+              mse=mse,
+              residuals=residuals))
 }
 
 identify_id_type <- function(x) {
@@ -136,6 +170,6 @@ identify_id_type <- function(x) {
   } else if (all(grepl("^\\d+$", x))) {
     return("entrez")
   } else {
-    stop("Cannot determine gene IDs in expression matrix. Rownames should either be all Ensembl or ENTREZ identifiers, or manually supplied using the ensembl_ids or entrez_ids argument.")
+    stop("Cannot determine gene IDs in expression matrix. Rownames should either be all Ensembl or all Entrez identifiers, or manually supplied using the ensembl_ids or entrez_ids argument.")
   }
 }
