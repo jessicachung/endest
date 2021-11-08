@@ -35,6 +35,11 @@ estimate_cycle_time <- function(exprs, ensembl_ids=NULL, entrez_ids=NULL,
     stop("Error: Missing sample names. Expression matrix must have column names.")
   }
 
+  # Check colnames are unique
+  if (any(duplicated(colnames(exprs)))) {
+    stop("Error: Column names in the expression matrix are not unique. Sample names must be unique.")
+  }
+
   # Check gene IDs have been provided
   if (is.null(rownames(exprs)) & is.null(ensembl_ids) & is.null(entrez_ids)) {
     stop("Error: Missing gene identifiers. Ensembl or Entrez gene IDs must be set as rownames in the expression matrix or provided using the ensembl_ids/entrez_ids arguments.")
@@ -84,27 +89,26 @@ estimate_cycle_time <- function(exprs, ensembl_ids=NULL, entrez_ids=NULL,
 
   # Handle possible gene IDs many-to-one observations
   if (is.null(ensembl_ids) & is.null(entrez_ids) & ! any(duplicated(common_genes))) {
+    # No genes in the rownames are duplicated
     common_exprs <- exprs[common_genes,]
   } else if (! any(duplicated(common_genes))) {
+    # None of the provided genes are duplicated
     rownames(exprs) <- gene_ids
     common_exprs <- exprs[common_genes,]
   } else {
-    # TODO: Refactor this out later
-    probe_to_gene_id <- gene_ids
     # Change rownames of exprs to 1:nrow(exprs) since we can't always be sure unique rownames are provided
+    probe_to_gene_id <- gene_ids
     rownames(exprs) <- seq_len(nrow(exprs))
     names(probe_to_gene_id) <- rownames(exprs)
 
     # Handle one-to-one observations
     single_genes <- names(which(table(gene_ids) == 1))
-
     single_probes <- names(probe_to_gene_id)[probe_to_gene_id %in% single_genes]
     single_exprs <- exprs[single_probes,]
     rownames(single_exprs) <- probe_to_gene_id[rownames(single_exprs)]
 
     # Consolidate ensembl IDs that have multiple probes
     multiple_genes <- names(which(table(gene_ids) > 1))
-
     if (handle_multiple_observations == "remove") {
       message(paste0("Removing ", length(multiple_genes), " genes that have multiple observations."))
       common_genes <- common_genes[common_genes %in% rownames(single_exprs)]
@@ -113,24 +117,10 @@ estimate_cycle_time <- function(exprs, ensembl_ids=NULL, entrez_ids=NULL,
       if (! quiet) {
         message(paste0("Consolidating ", length(multiple_genes), " genes that have multiple observations using the ", handle_multiple_observations, "."))
       }
-      consolidated_list <- list()
-      if (handle_multiple_observations == "mean") {
-        f <- mean
-      } else if (handle_multiple_observations == "median") {
-        f <- stats::median
-      } else {
-        f <- max
-      }
-      for (gid in multiple_genes) {
-        illumina_ids <- names(which(probe_to_gene_id == gid))
-        consolidated_list[[gid]] <- apply(exprs[illumina_ids,], 2, f)
-      }
+      multi_exprs <- consolidate_multiple_probes(multiple_genes, probe_to_gene_id, exprs=exprs, method=handle_multiple_observations)
 
       # Combine single and multiple matrices
-      common_exprs  <- rbind(
-        do.call(rbind, consolidated_list),
-        single_exprs
-      )
+      common_exprs  <- rbind(multi_exprs, single_exprs)
       common_exprs <- common_exprs[common_genes,]
     }
   }
@@ -162,14 +152,4 @@ estimate_cycle_time <- function(exprs, ensembl_ids=NULL, entrez_ids=NULL,
   return(list(estimated_time=estimated_time,
               mse=mse,
               residuals=residuals))
-}
-
-identify_id_type <- function(x) {
-  if (all(grepl("^ENSG", x))) {
-    return("ensembl")
-  } else if (all(grepl("^\\d+$", x))) {
-    return("entrez")
-  } else {
-    stop("Cannot determine gene IDs in expression matrix. Rownames should either be all Ensembl or all Entrez identifiers, or manually supplied using the ensembl_ids or entrez_ids argument.")
-  }
 }
