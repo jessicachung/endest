@@ -83,8 +83,11 @@ estimate_cycle_time <- function(exprs, ensembl_ids=NULL, entrez_ids=NULL,
     common_genes <- gene_ids[gene_ids %in% in_common]
     n_obs <- sum(gene_ids %in% common_genes)
   }
+  if (n_obs == 0) {
+    stop(paste0("Error: ", n_obs, " / ", nrow(exprs), " observations from the input expression matrix can be used. Check if your gene IDs are correct."))
+  }
   if (! quiet) {
-    message(paste0("Using ", n_obs, "/", nrow(exprs), " observations from the input expression matrix."))
+    message(paste0("Using ", n_obs, " / ", nrow(exprs), " observations from the input expression matrix."))
   }
 
   # Handle possible gene IDs many-to-one observations

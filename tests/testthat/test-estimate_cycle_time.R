@@ -19,6 +19,9 @@ test_that("Errors with gene identifiers", {
 
   expect_error(estimate_cycle_time(exprs=m, entrez_ids=1:10),
                "The number of provided gene IDs does not match the number of rows")
+
+  expect_error(estimate_cycle_time(exprs=m, entrez_ids=rep(NA, 5)),
+               "Error: 0 / 5 observations from the input expression matrix can be used")
 })
 
 test_that("Estimation for RNA-seq", {
