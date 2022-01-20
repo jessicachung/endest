@@ -122,3 +122,16 @@ coef_matrix <- round(coef_matrix, 6)
 # Save sysdata
 
 save(coef_matrix, lp_matrix, ref, ensembl_to_entrez, file="R/sysdata.rda", version=2)
+
+# Check size
+tools::checkRdaFiles("R/sysdata.rda")
+#                  size ASCII compress version
+# R/sysdata.rda 3644508 FALSE     gzip       2
+
+# Re-save with xz compression to reduce size
+tools::resaveRdaFiles("R/sysdata.rda", compress="xz", version=2)
+
+# Check size
+tools::checkRdaFiles("R/sysdata.rda")
+#                  size ASCII compress version
+# R/sysdata.rda 2003824 FALSE       xz       2
