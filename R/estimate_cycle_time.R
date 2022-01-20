@@ -30,6 +30,16 @@ estimate_cycle_time <- function(exprs, ensembl_ids=NULL, entrez_ids=NULL,
 
   handle_multiple_observations <- match.arg(handle_multiple_observations)
 
+  # Make sure exprs is a matrix, not a dataframe
+  if (! "matrix" %in% class(exprs)) {
+    stop("Error: exprs input must be a matrix.")
+  }
+
+  # Check there are no NAs in the input matrix
+  if (! all(complete.cases(exprs))) {
+    stop("Error: exprs input must not contain NA values.")
+  }
+
   # Check input exprs has sample names as colnames
   if (is.null(colnames(exprs))) {
     stop("Error: Missing sample names. Expression matrix must have column names.")
