@@ -15,13 +15,16 @@
 #'   \item{residuals}{A matrix of residual values after subtracting the cycle stage effect.}
 #' }
 #' @export
+#' @importFrom stats complete.cases
 #'
 #' @examples
-#' # Simulate gene expression data for 100 genes and 3 samples
-#' entrez_ids <- 9801:9900
-#' y <- matrix(rnorm(100*3, 5, 2), nrow=100)
-#' colnames(y) <- paste0("sample_", 1:3)
-#' results <- estimate_cycle_time(exprs=y, entrez_ids=entrez_ids)
+#' data(example_rna_exprs)
+#' results <- estimate_cycle_time(exprs=example_rna_exprs)
+#' results$estimated_time
+#'
+#' data(example_array_exprs)
+#' data(example_array_entrez_ids)
+#' results <- estimate_cycle_time(exprs=example_array_exprs, entrez_ids=example_array_entrez_ids)
 #' results$estimated_time
 
 estimate_cycle_time <- function(exprs, ensembl_ids=NULL, entrez_ids=NULL,
