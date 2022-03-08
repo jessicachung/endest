@@ -121,7 +121,7 @@ coef_matrix <- round(coef_matrix, 6)
 # ------------------------------------------------------------
 # Save sysdata
 
-save(coef_matrix, lp_matrix, ref, ensembl_to_entrez, file="R/sysdata.rda", version=2)
+save(coef_matrix, lp_matrix, ref, ensembl_to_entrez, file="tmp/full_sysdata.rda", version=2)
 
 # Check size
 tools::checkRdaFiles("R/sysdata.rda")
