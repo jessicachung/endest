@@ -6,6 +6,7 @@
 #' @param ensembl_ids Optional vector of Ensembl gene identifiers corresponding to each row of the expression matrix \code{exprs}.
 #' @param entrez_ids Optional vector of Entrez gene identifiers corresponding to each row of the expression matrix \code{exprs}.
 #' @param handle_multiple_observations Method of handling multiple observations correspond to the same gene. \code{"remove"} will remove all observations of multiple observations, while \code{"mean"}, \code{"median"}, and \code{"max"} will consolidate multiple observations into one using the specified function.
+#' @param model Use full model (recommended) or secretory model.
 #' @param quiet Run quietly and don't output messages.
 #'
 #' @return Returns a list with the following items:
@@ -29,9 +30,11 @@
 
 estimate_cycle_time <- function(exprs, ensembl_ids=NULL, entrez_ids=NULL,
                                 handle_multiple_observations=c("mean", "median", "max", "remove"),
+                                model=c("full", "secretory"),
                                 quiet=FALSE) {
 
   handle_multiple_observations <- match.arg(handle_multiple_observations)
+  model <- match.arg(model)
 
   # Make sure exprs is a matrix, not a dataframe
   if (! "matrix" %in% class(exprs)) {
@@ -78,6 +81,14 @@ estimate_cycle_time <- function(exprs, ensembl_ids=NULL, entrez_ids=NULL,
     if (length(gene_ids) != nrow(exprs)) {
       stop("Error: The number of provided gene IDs does not match the number of rows in the expression matrix.")
     }
+  }
+
+  if (model == "full") {
+    coef_matrix <- full_coef_matrix
+    lp_matrix <- full_lp_matrix
+  } else {
+    coef_matrix <- sec_coef_matrix
+    lp_matrix <- sec_lp_matrix
   }
 
   if (gene_id_type == "entrez") {
@@ -157,7 +168,7 @@ estimate_cycle_time <- function(exprs, ensembl_ids=NULL, entrez_ids=NULL,
 
   # Estimate cycle time using the minimum MSE
   estimated_time <- rownames(mse)[apply(mse, 2, which.min)]
-  estimated_time <- as.numeric(sub("^time_", "", estimated_time))
+  estimated_time <- as.numeric(sub("^time_|^pod_", "", estimated_time))
   names(estimated_time) <- colnames(mse)
 
   # Calculate residuals
