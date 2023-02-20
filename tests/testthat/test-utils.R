@@ -16,7 +16,7 @@ test_that("Errors with invalid gene IDs", {
 
 test_that("Consolidate multiple probes", {
   multiple_genes <- c("A", "B", "C")
-  m <- matrix(rep(c(1, 2, 1, 2, 1, 4, 9), times=21), nrow=7, ncol=3)
+  m <- matrix(rep(c(1, 2, 1, 2, 1, 4, 9), times=3), nrow=7, ncol=3)
   colnames(m) <- paste0("sample_", 1:3)
   rownames(m) <- 1:7
   probe_to_gene_id <- c("A", "A", "B", "C", "B", "C", "C")

@@ -4,10 +4,11 @@
 #'
 #' @param x Cycle time estimation list generated from the \code{estimate_cycle_time} function.
 #' @param sample_name Sample name of sample to plot corresponding to one of the column names in the original expression matrix.
-#' @param ... Other optional arguemtns to be passed to \code{plot}.
+#' @param ... Other optional arguments to be passed to \code{plot}.
 #'
 #' @return None
 #' @export
+#' @importFrom graphics plot abline mtext
 #'
 #' @examples
 #' # Simulate gene expression data for 100 genes and 3 samples
