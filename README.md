@@ -7,11 +7,21 @@ The goal of endest is to estimate uterine cycle time of endometrium samples usin
 
 The estimated cycle time is given by a number between 0 and 99, where 0 is approximately the start of menstruation, ~8 is the start of the proliferative phase, and ~58 is the start of the secretory phase.
 
+Endest is published pursuant to the terms located in the [license file](LICENSE) which permit reproduction, publication and adaptation of endest solely for non-commercial purposes.
+
 ## Installation
 
 You can install endest using:
 
 ``` r
+# First install the preprocessCore package dependency from Bioconductor
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("preprocessCore")
+
+# Install the endest package
+if (!require("devtools", quietly = TRUE))
+    install.packages("devtools")
 devtools::install_github("jessicachung/endest")
 ```
 
