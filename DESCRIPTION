@@ -1,7 +1,7 @@
 Package: endest
 Type: Package
 Title: Estimate Uterine Cycle Time from Endometrium Expression Data
-Version: 0.1.0
+Version: 0.1.1
 Author: Jessica Chung
 Maintainer: Jessica Chung <jchung@unimelb.edu.au>
 Description: Using endometrium expression data from RNA-seq or microarray,
