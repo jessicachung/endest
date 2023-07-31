@@ -9,6 +9,7 @@ estimate_cycle_time(
   ensembl_ids = NULL,
   entrez_ids = NULL,
   handle_multiple_observations = c("mean", "median", "max", "remove"),
+  return_full_residuals = FALSE,
   model = c("full", "secretory"),
   quiet = FALSE
 )
@@ -22,6 +23,8 @@ estimate_cycle_time(
 
 \item{handle_multiple_observations}{Method of handling multiple observations correspond to the same gene. \code{"remove"} will remove all observations of multiple observations, while \code{"mean"}, \code{"median"}, and \code{"max"} will consolidate multiple observations into one using the specified function.}
 
+\item{return_full_residuals}{Return a list of residual matrices for all samples if \code{TRUE}. The matrices contain residual values for every time point for all genes.}
+
 \item{model}{Use full model (recommended) or secretory model.}
 
 \item{quiet}{Run quietly and don't output messages.}
@@ -32,6 +35,7 @@ Returns a list with the following items:
   \item{estimated_time}{A vector of estimated cycle times from 0 to 99 for each sample.}
   \item{mse}{A matrix of mean squared error values for each sample at each timepoint.}
   \item{residuals}{A matrix of residual values after subtracting the cycle stage effect.}
+  \item{full_residuals}{If \code{return_full_residuals=TRUE}, a list of matrices containing residual values for all timepoints.}
 }
 }
 \description{

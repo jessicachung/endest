@@ -6,6 +6,7 @@
 #' @param ensembl_ids Optional vector of Ensembl gene identifiers corresponding to each row of the expression matrix \code{exprs}.
 #' @param entrez_ids Optional vector of Entrez gene identifiers corresponding to each row of the expression matrix \code{exprs}.
 #' @param handle_multiple_observations Method of handling multiple observations correspond to the same gene. \code{"remove"} will remove all observations of multiple observations, while \code{"mean"}, \code{"median"}, and \code{"max"} will consolidate multiple observations into one using the specified function.
+#' @param return_full_residuals Return a list of residual matrices for all samples if \code{TRUE}. The matrices contain residual values for every time point for all genes.
 #' @param model Use full model (recommended) or secretory model.
 #' @param quiet Run quietly and don't output messages.
 #'
@@ -14,6 +15,7 @@
 #'   \item{estimated_time}{A vector of estimated cycle times from 0 to 99 for each sample.}
 #'   \item{mse}{A matrix of mean squared error values for each sample at each timepoint.}
 #'   \item{residuals}{A matrix of residual values after subtracting the cycle stage effect.}
+#'   \item{full_residuals}{If \code{return_full_residuals=TRUE}, a list of matrices containing residual values for all timepoints.}
 #' }
 #' @export
 #' @importFrom stats complete.cases
@@ -30,7 +32,7 @@
 
 estimate_cycle_time <- function(exprs, ensembl_ids=NULL, entrez_ids=NULL,
                                 handle_multiple_observations=c("mean", "median", "max", "remove"),
-                                model=c("full", "secretory"),
+                                return_full_residuals=FALSE, model=c("full", "secretory"),
                                 quiet=FALSE) {
 
   handle_multiple_observations <- match.arg(handle_multiple_observations)
@@ -164,7 +166,7 @@ estimate_cycle_time <- function(exprs, ensembl_ids=NULL, entrez_ids=NULL,
   mse <- sapply(1:ncol(normalised_exprs), function(i) {
     colMeans(sweep(x=expected_exprs[common_genes,], MARGIN=1, STATS=normalised_exprs[,i], FUN="-") ^ 2)
   })
-  colnames(mse) <- colnames(common_exprs)
+  colnames(mse) <- colnames(normalised_exprs)
 
   # Estimate cycle time using the minimum MSE
   estimated_time <- rownames(mse)[apply(mse, 2, which.min)]
@@ -175,8 +177,19 @@ estimate_cycle_time <- function(exprs, ensembl_ids=NULL, entrez_ids=NULL,
   exp <- expected_exprs[common_genes,rownames(mse)[apply(mse, 2, which.min)]]
   residuals <- normalised_exprs - exp
 
+  # Get full residuals if specified
+  if (return_full_residuals) {
+    full_residuals <- lapply(1:ncol(normalised_exprs), function(i) {
+      sweep(x=expected_exprs[common_genes,] * -1, MARGIN=1, STATS=normalised_exprs[,i], FUN="+")
+    })
+    names(full_residuals) <- colnames(normalised_exprs)
+  } else {
+    full_residuals <- NULL
+  }
+
   # TODO: Return an S4 object instead of a list?
   return(list(estimated_time=estimated_time,
               mse=mse,
-              residuals=residuals))
+              residuals=residuals,
+              full_residuals=full_residuals))
 }
